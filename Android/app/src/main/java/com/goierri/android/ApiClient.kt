@@ -6,10 +6,12 @@ import retrofit2.converter.gson.GsonConverterFactory
 
 object ApiClient {
 
-    // Cambia a la IP de tu PC si usas emulador
+    // ⚠️ Usa la IP de tu PC
     private const val BASE_URL = "http://192.168.2.103:5093/"
 
-    private val gson = GsonBuilder().setLenient().create()
+    private val gson = GsonBuilder()
+        .setLenient()
+        .create()
 
     val apiService: ApiService by lazy {
         Retrofit.Builder()

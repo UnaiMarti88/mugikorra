@@ -19,4 +19,16 @@ data class Rola(
     val id: Int,
     val izena: String
 )
+// Models.kt
+
+data class Kategoria(
+    val id: Int,
+    val izena: String
+)
+
+data class Produktua(
+    val id: Int,
+    val izena: String,
+    val prezioa: Double
+)
 

@@ -29,7 +29,7 @@ class MainActivity : ComponentActivity() {
                 Surface(modifier = Modifier.fillMaxSize()) {
 
                     if (loggedIn) {
-                        EskaeraTPVScreen(nombre = usuarioNombre)
+                        EskaeraTPVScreen()
                     } else {
                         LoginScreen { erabiltzailea, pasahitza ->
 
