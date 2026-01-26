@@ -101,6 +101,7 @@ private fun EskaeraEginContent(
     var mahaiaHautatua by remember { mutableStateOf<MahaiaDTO?>(null) }
     var komensalak by remember { mutableStateOf<Int?>(null) }
     var mahaiLibreak by remember { mutableStateOf<List<MahaiaDTO>>(emptyList()) }
+    var mahaiKapasitatea by remember { mutableStateOf<Int?>(null) }
 
     var mahaiDialog by remember { mutableStateOf(false) }
     var komensalDialog by remember { mutableStateOf(false) }
@@ -211,6 +212,11 @@ private fun EskaeraEginContent(
                                 modifier = Modifier.size(40.dp)
                             )
                             Text(producto.izena, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Text(
+                                "Stock: ${producto.stockAktuala ?: "-"}",
+                                fontSize = 11.sp,
+                                color = Color.DarkGray
+                            )
                             Text("${String.format(Locale.getDefault(), "%.2f", producto.prezioa)} €", fontSize = 12.sp)
                         }
                     }
@@ -414,7 +420,16 @@ private fun EskaeraEginContent(
                                 .clickable {
                                     mahaiaHautatua = m
                                     mahaiDialog = false
-                                    komensalDialog = true
+                                    scope.launch {
+                                        try {
+                                            val resp = ApiClient.apiService.getMahaiKapasitatea(m.id)
+                                            mahaiKapasitatea = resp.datuak?.firstOrNull()
+                                        } catch (e: Exception) {
+                                            Log.e("TPV", "Kapasitatea lortzean errorea", e)
+                                            mahaiKapasitatea = null
+                                        }
+                                        komensalDialog = true
+                                    }
                                 }
                                 .padding(8.dp)
                         )
@@ -435,17 +450,28 @@ private fun EskaeraEginContent(
             onDismissRequest = { komensalDialog = false },
             title = { Text("Komensalak") },
             text = {
+                val maxText = mahaiKapasitatea?.toString() ?: "-"
                 OutlinedTextField(
                     value = komensalText,
                     onValueChange = { komensalText = it.filter { ch -> ch.isDigit() } },
                     singleLine = true,
-                    label = { Text("Pertsona kopurua") }
+                    label = { Text("Pertsona kopurua (max $maxText)") }
                 )
             },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        komensalak = komensalText.toIntOrNull()
+                        val value = komensalText.toIntOrNull()
+                        val max = mahaiKapasitatea
+                        if (value == null || value <= 0) {
+                            Toast.makeText(context, "Komensalak zehaztu", Toast.LENGTH_SHORT).show()
+                            return@TextButton
+                        }
+                        if (max != null && value > max) {
+                            Toast.makeText(context, "Gehienez $max pertsona", Toast.LENGTH_SHORT).show()
+                            return@TextButton
+                        }
+                        komensalak = value
                         komensalDialog = false
                     }
                 ) {

@@ -133,6 +133,7 @@ fun EskaeraIkusiScreen() {
                             Column(modifier = Modifier.padding(8.dp)) {
                                 Text("Eskaera #${eskaera.id}", fontWeight = FontWeight.Bold)
                                 Text("Mahaia: ${eskaera.mahaiaId} · Komensalak: ${eskaera.komensalak}")
+                                Text("Sukaldea: ${eskaera.sukaldeaEgoera}")
                                 Text("Data: ${eskaera.data}")
                             }
                         }
@@ -152,11 +153,16 @@ fun EskaeraIkusiScreen() {
                 Text("Produktuak", fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(6.dp))
 
-                if (hautatutakoEskaera == null) {
+                val selectedEskaera = hautatutakoEskaera
+                if (selectedEskaera == null) {
                     Text("Aukeratu eskaera bat")
-                } else if (produktuak.isEmpty()) {
-                    Text("Eskaeran ez dago produkturik")
                 } else {
+                    Text("Sukaldea: ${selectedEskaera.sukaldeaEgoera}")
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    if (produktuak.isEmpty()) {
+                        Text("Eskaeran ez dago produkturik")
+                    } else {
                     val guztira = produktuak.sumOf { it.prezioUnitarioa * it.kantitatea }
                     LazyColumn(modifier = Modifier.weight(1f)) {
                         items(produktuak) { p ->
@@ -168,6 +174,7 @@ fun EskaeraIkusiScreen() {
                         text = "Guztira: ${String.format(Locale.getDefault(), "%.2f", guztira)} €",
                         fontWeight = FontWeight.Bold
                     )
+                    }
                     Spacer(modifier = Modifier.height(8.dp))
                     Button(
                         onClick = { editMode = true },
@@ -274,6 +281,7 @@ private fun EskaeraEditatuScreen(
             TextButton(onClick = onBack) { Text("Itzuli") }
         }
         Text("Mahaia: ${eskaera.mahaiaId} · Data: ${eskaera.data}")
+        Text("Sukaldea: ${eskaera.sukaldeaEgoera}")
         Spacer(modifier = Modifier.height(6.dp))
         OutlinedTextField(
             value = komensalak.toString(),
@@ -354,6 +362,11 @@ private fun EskaeraEditatuScreen(
                                     modifier = Modifier.size(40.dp)
                                 )
                                 Text(producto.izena, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                Text(
+                                    "Stock: ${producto.stockAktuala ?: "-"}",
+                                    fontSize = 11.sp,
+                                    color = Color.DarkGray
+                                )
                                 Text("${String.format(Locale.getDefault(), "%.2f", producto.prezioa)} €", fontSize = 12.sp)
                             }
                         }

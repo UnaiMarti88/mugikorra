@@ -68,7 +68,8 @@ data class EskaeraDTO(
     @SerializedName("izena") val izena: String,
     @SerializedName("mahaiaId") val mahaiaId: Int,
     @SerializedName("komensalak") val komensalak: Int,
-    @SerializedName("data") val data: String
+    @SerializedName("data") val data: String,
+    @SerializedName("sukaldeaEgoera") val sukaldeaEgoera: String
 )
 
 data class EskaeraLortuDTO(

@@ -43,6 +43,11 @@ interface ApiService {
         @Path("id") eskaeraId: Int
     ): ErantzunaDTO<EskaeraLortuDTO>
 
+    @GET("api/eskaerak/mahaiak/{id}/kapazitatea")
+    suspend fun getMahaiKapasitatea(
+        @Path("id") mahaiaId: Int
+    ): ErantzunaDTO<Int>
+
     @PUT("api/eskaerak/{id}")
     suspend fun eguneratuEskaera(
         @Path("id") eskaeraId: Int,
