@@ -6,8 +6,8 @@ import retrofit2.converter.gson.GsonConverterFactory
 
 object ApiClient {
 
-    // ⚠️ Usa la IP de tu PC
-    private const val BASE_URL = "http://192.168.2.103:5093/"
+    // ⚠️ IP del portátil en la misma Wi‑Fi
+    private const val BASE_URL = "http://192.168.2.101:5093/"
 
     private val gson = GsonBuilder()
         .setLenient()

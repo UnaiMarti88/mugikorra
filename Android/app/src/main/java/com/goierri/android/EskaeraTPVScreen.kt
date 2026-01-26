@@ -1,6 +1,7 @@
 package com.goierri.android
 
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -15,194 +16,462 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
+import com.google.gson.Gson
+import com.google.gson.JsonSyntaxException
 import java.text.SimpleDateFormat
 import java.util.*
 
+private enum class TPVView {
+    ESKAERA_EGIN,
+    ESKAERA_IKUSI,
+    MAHAIAK_IKUSI
+}
+
 @Composable
-fun EskaeraTPVScreen() {
-    val scope = rememberCoroutineScope()
-    var kategoriak by remember { mutableStateOf<List<Kategoria>>(emptyList()) }
-    var kategoriaAktiboa by remember { mutableStateOf<Kategoria?>(null) }
-    var produktuak by remember { mutableStateOf<List<Produktua>>(emptyList()) }
-    var eskaera by remember { mutableStateOf<List<Produktua>>(emptyList()) }
-
-    var seleccionado by remember { mutableStateOf<Produktua?>(null) }
+fun EskaeraTPVScreen(
+    erabiltzaileId: Int,
+    erabiltzaileIzena: String,
+    onLogout: () -> Unit
+) {
     var menuAbierto by remember { mutableStateOf(false) }
-
-    // Cargar categorías al iniciar
-    LaunchedEffect(Unit) {
-        try {
-            kategoriak = ApiClient.apiService.getKategoriak()
-        } catch (e: Exception) {
-            Log.e("TPV", "Error cargando categorias", e)
-        }
-    }
+    var view by remember { mutableStateOf(TPVView.ESKAERA_EGIN) }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // ------------------- CONTENIDO PRINCIPAL -------------------
         Column(modifier = Modifier.fillMaxSize()) {
             HeaderTPV(
                 modifier = Modifier.height(100.dp),
                 onMenuClick = { menuAbierto = !menuAbierto }
             )
 
-            Row(modifier = Modifier.fillMaxSize()) {
-                // ----------------- PANEL IZQUIERDO -----------------
-                Column(
-                    modifier = Modifier
-                        .weight(0.7f)
-                        .fillMaxHeight()
-                        .padding(8.dp)
-                ) {
-                    // Lista de productos seleccionados
-                    LazyColumn(
+            when (view) {
+                TPVView.ESKAERA_EGIN -> EskaeraEginContent(
+                    erabiltzaileId = erabiltzaileId,
+                    erabiltzaileIzena = erabiltzaileIzena
+                )
+                TPVView.ESKAERA_IKUSI -> EskaeraIkusiScreen()
+                TPVView.MAHAIAK_IKUSI -> MahaiakIkusiScreen()
+            }
+        }
+
+        Menua(
+            menuAbierto = menuAbierto,
+            onCloseMenu = { menuAbierto = false },
+            onEskaeraEginClick = {
+                view = TPVView.ESKAERA_EGIN
+                menuAbierto = false
+            },
+            onEskaeraIkusiClick = {
+                view = TPVView.ESKAERA_IKUSI
+                menuAbierto = false
+            },
+            onMahiakIkusiClick = {
+                view = TPVView.MAHAIAK_IKUSI
+                menuAbierto = false
+            },
+            onLogoutClick = {
+                menuAbierto = false
+                onLogout()
+            }
+        )
+    }
+}
+
+@Composable
+private fun EskaeraEginContent(
+    erabiltzaileId: Int,
+    erabiltzaileIzena: String
+) {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    var kategoriak by remember { mutableStateOf<List<Kategoria>>(emptyList()) }
+    var kategoriaAktiboa by remember { mutableStateOf<Kategoria?>(null) }
+    var produktuak by remember { mutableStateOf<List<Produktua>>(emptyList()) }
+    var eskaera by remember { mutableStateOf<List<OrderItem>>(emptyList()) }
+
+    var hautatutakoItem by remember { mutableStateOf<OrderItem?>(null) }
+    var mahaiaHautatua by remember { mutableStateOf<MahaiaDTO?>(null) }
+    var komensalak by remember { mutableStateOf<Int?>(null) }
+    var mahaiLibreak by remember { mutableStateOf<List<MahaiaDTO>>(emptyList()) }
+
+    var mahaiDialog by remember { mutableStateOf(false) }
+    var komensalDialog by remember { mutableStateOf(false) }
+
+    val isMahaiSelected = mahaiaHautatua != null
+    val isKomensalakSelected = (komensalak != null && komensalak!! > 0)
+    val isOrderReady = isMahaiSelected && isKomensalakSelected
+    val contentAlpha = if (isOrderReady) 1f else 0.4f
+
+    LaunchedEffect(Unit) {
+        try {
+            kategoriak = ApiClient.apiService.getKategoriak()
+        } catch (e: Exception) {
+            Log.e("TPV", "Kategoriak kargatzean errorea", e)
+            Toast.makeText(context, "Ezin dira kategoriak kargatu", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val guztira = remember(eskaera) {
+        eskaera.sumOf { it.produktua.prezioa * it.kantitatea }
+    }
+
+    Row(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .weight(0.7f)
+                .fillMaxHeight()
+                .padding(8.dp)
+            .alpha(contentAlpha)
+        ) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD))
+            ) {
+                Column(modifier = Modifier.padding(8.dp)) {
+                    Text("Zerbitzaria: $erabiltzaileIzena", fontWeight = FontWeight.Bold)
+                    val mahaiaText = mahaiaHautatua?.zenbakia?.toString() ?: "-"
+                    val komensalText = komensalak?.toString() ?: "-"
+                    Text("Mahaia: $mahaiaText · Komensalak: $komensalText")
+                    Text("Guztira: ${String.format(Locale.getDefault(), "%.2f", guztira)} €")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            LazyColumn(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .background(Color.White)
+                    .padding(8.dp)
+            ) {
+                items(eskaera) { item ->
+                    val selected = item == hautatutakoItem
+                    Box(
                         modifier = Modifier
-                            .weight(1f)
                             .fillMaxWidth()
-                            .background(Color.White)
-                            .padding(8.dp)
+                            .background(if (selected) Color(0xFFB3E5FC) else Color.Transparent)
+                            .then(
+                                if (isOrderReady) Modifier.clickable { hautatutakoItem = item } else Modifier
+                            )
+                            .padding(4.dp)
                     ) {
-                        items(eskaera) { producto ->
-                            val estaSeleccionado = producto == seleccionado
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .background(if (estaSeleccionado) Color(0xFFB3E5FC) else Color.Transparent)
-                                    .clickable { seleccionado = producto }
-                                    .padding(4.dp)
-                            ) {
-                                Text(
-                                    text = "• ${producto.izena} - ${producto.prezioa}€",
-                                    fontSize = 16.sp
-                                )
-                            }
-                        }
+                        Text(
+                            text = "• ${item.produktua.izena} x${item.kantitatea} - ${String.format(Locale.getDefault(), "%.2f", item.produktua.prezioa)} €",
+                            fontSize = 16.sp
+                        )
                     }
+                }
+            }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-                    // Grid de productos
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(3),
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(3),
+                modifier = Modifier
+                    .height(300.dp)
+                    .fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                gridItems(produktuak) { producto ->
+                    Card(
                         modifier = Modifier
-                            .height(300.dp)
-                            .fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        gridItems(produktuak) { producto ->
-                            Card(
-                                modifier = Modifier
-                                    .padding(4.dp)
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        eskaera = eskaera + producto
-                                        seleccionado = null
-                                    }
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(4.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    Image(
-                                        painter = painterResource(id = R.drawable.ic_launcher_foreground),
-                                        contentDescription = producto.izena,
-                                        modifier = Modifier.size(40.dp)
-                                    )
-                                    Text(producto.izena, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                                    Text("${producto.prezioa} €", fontSize = 12.sp)
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // ----------------- GRID DE CATEGORIAS -----------------
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(4), // 4 botones por fila
-                        modifier = Modifier
+                            .padding(4.dp)
                             .fillMaxWidth()
-                            .height(160.dp), // ajustado para dos filas
-                        userScrollEnabled = false,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        gridItems(kategoriak) { kategoria ->
-                            val seleccionada = kategoriaAktiboa?.id == kategoria.id
-                            Button(
-                                onClick = {
-                                    kategoriaAktiboa = kategoria
-                                    scope.launch {
-                                        try {
-                                            produktuak =
-                                                ApiClient.apiService.getProduktuakByKategoria(kategoria.id)
-                                        } catch (e: Exception) {
-                                            Log.e("TPV", "Error cargando productos", e)
+                            .then(
+                                if (isOrderReady) Modifier.clickable {
+                                    val existing = eskaera.firstOrNull { it.produktua.id == producto.id }
+                                    eskaera = if (existing == null) {
+                                        eskaera + OrderItem(producto, 1)
+                                    } else {
+                                        eskaera.map {
+                                            if (it.produktua.id == producto.id) it.copy(kantitatea = it.kantitatea + 1) else it
                                         }
                                     }
-                                },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (seleccionada) Color(0xFF1565C0) else Color(0xFF90CAF9)
-                                ),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(60.dp)
-                            ) {
-                                Text(kategoria.izena, fontSize = 16.sp)
-                            }
+                                    hautatutakoItem = null
+                                } else Modifier
+                            )
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(4.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Image(
+                                painter = painterResource(id = R.drawable.ic_launcher_foreground),
+                                contentDescription = producto.izena,
+                                modifier = Modifier.size(40.dp)
+                            )
+                            Text(producto.izena, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Text("${String.format(Locale.getDefault(), "%.2f", producto.prezioa)} €", fontSize = 12.sp)
                         }
                     }
                 }
+            }
 
-                // ----------------- PANEL DERECHO (botones acción) -----------------
-                Column(
-                    modifier = Modifier
-                        .weight(0.3f)
-                        .fillMaxHeight(0.5f) // solo hasta mitad de altura
-                        .padding(4.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    val botones = listOf("Diru Totala", "Ilara Ezabatu", "Mahia Definitu", "Eskaera Gorde")
-                    botones.forEach { text ->
-                        Button(
-                            onClick = {
-                                if (text == "Ilara Ezabatu") {
-                                    // borrar producto seleccionado
-                                    if (seleccionado != null) {
-                                        eskaera = eskaera.filter { it != seleccionado }
-                                        seleccionado = null
-                                    } else if (eskaera.isNotEmpty()) {
-                                        // borrar último producto
-                                        eskaera = eskaera.dropLast(1)
-                                    }
+            Spacer(modifier = Modifier.height(12.dp))
+
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(4),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(160.dp),
+                userScrollEnabled = false,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                gridItems(kategoriak) { kategoria ->
+                    val seleccionada = kategoriaAktiboa?.id == kategoria.id
+                    Button(
+                        onClick = {
+                            kategoriaAktiboa = kategoria
+                            scope.launch {
+                                try {
+                                    produktuak = ApiClient.apiService.getProduktuakByKategoria(kategoria.id)
+                                } catch (e: Exception) {
+                                    Log.e("TPV", "Produktuak kargatzean errorea", e)
+                                    Toast.makeText(context, "Ezin dira produktuak kargatu", Toast.LENGTH_SHORT).show()
                                 }
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(50.dp)
-                        ) {
-                            Text(text)
-                        }
+                            }
+                        },
+                        enabled = isOrderReady,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (seleccionada) Color(0xFF1565C0) else Color(0xFF90CAF9)
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(60.dp)
+                    ) {
+                        Text(kategoria.izena, fontSize = 16.sp)
                     }
                 }
             }
         }
 
-        // ------------------- MENÚ LATERAL -------------------
-        Menua(
-            menuAbierto = menuAbierto,
-            onCloseMenu = { menuAbierto = false },
-            onEskaeraEginClick = { /* TODO */ },
-            onEskaeraIkusiClick = { /* TODO */ },
-            onMahiakIkusiClick = { /* TODO */ }
+        Column(
+            modifier = Modifier
+                .weight(0.3f)
+                .fillMaxHeight(0.6f)
+                .padding(4.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Button(
+                onClick = {
+                    Toast.makeText(
+                        context,
+                        "Guztira: ${String.format(Locale.getDefault(), "%.2f", guztira)} €",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                },
+                enabled = isOrderReady,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+            ) {
+                Text("Diru Totala")
+            }
+
+            Button(
+                onClick = {
+                    val item = hautatutakoItem
+                    if (item != null) {
+                        if (item.kantitatea > 1) {
+                            eskaera = eskaera.map {
+                                if (it.produktua.id == item.produktua.id) it.copy(kantitatea = it.kantitatea - 1) else it
+                            }
+                        } else {
+                            eskaera = eskaera.filter { it.produktua.id != item.produktua.id }
+                        }
+                        hautatutakoItem = null
+                    } else if (eskaera.isNotEmpty()) {
+                        val last = eskaera.last()
+                        eskaera = if (last.kantitatea > 1) {
+                            eskaera.dropLast(1) + last.copy(kantitatea = last.kantitatea - 1)
+                        } else {
+                            eskaera.dropLast(1)
+                        }
+                    }
+                },
+                enabled = isOrderReady,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+            ) {
+                Text("Ilara Ezabatu")
+            }
+
+            Button(
+                onClick = {
+                    scope.launch {
+                        try {
+                            val response = ApiClient.apiService.getMahaiLibre()
+                            if (response.code == 200 && !response.datuak.isNullOrEmpty()) {
+                                mahaiLibreak = response.datuak
+                                mahaiDialog = true
+                            } else {
+                                Toast.makeText(
+                                    context,
+                                    response.message.ifBlank { "Ez dago mahai librerik" },
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        } catch (e: Exception) {
+                            Log.e("TPV", "Mahai libreak kargatzean errorea", e)
+                            Toast.makeText(context, "Ezin dira mahaiak kargatu", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+            ) {
+                Text("Mahia Aukeratu")
+            }
+
+            Button(
+                onClick = {
+                    if (eskaera.isEmpty()) {
+                        Toast.makeText(context, "Ez dago produkturik", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+                    if (mahaiaHautatua == null) {
+                        Toast.makeText(context, "Mahairik ez duzu aukeratu", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+                    if (komensalak == null || komensalak!! <= 0) {
+                        Toast.makeText(context, "Komensalak zehaztu", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+
+                    scope.launch {
+                        try {
+                            val request = EskaeraSortuRequest(
+                                erabiltzaileId = erabiltzaileId,
+                                mahaiaId = mahaiaHautatua!!.id,
+                                komensalak = komensalak!!,
+                                produktuak = eskaera.map {
+                                    EskaeraProduktuaSortuRequest(
+                                        produktuaId = it.produktua.id,
+                                        kantitatea = it.kantitatea,
+                                        prezioUnitarioa = it.produktua.prezioa
+                                    )
+                                }
+                            )
+
+                            val response = ApiClient.apiService.sortuEskaera(request)
+                            if (response.code == 200) {
+                                Toast.makeText(context, "Eskaera ongi gorde da", Toast.LENGTH_SHORT).show()
+                                eskaera = emptyList()
+                                hautatutakoItem = null
+                            } else {
+                                val extra = if (!response.datuak.isNullOrEmpty()) {
+                                    " (${response.datuak.joinToString(", ")})"
+                                } else ""
+                                Toast.makeText(
+                                    context,
+                                    response.message.ifBlank { "Eskaera ezin izan da gorde" } + extra,
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        } catch (e: HttpException) {
+                            val msg = extractServerMessage(e, "Eskaera ezin izan da gorde")
+                            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                        } catch (e: Exception) {
+                            Log.e("TPV", "Eskaera gordetzean errorea", e)
+                            Toast.makeText(context, "Eskaera ezin izan da gorde", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                },
+                enabled = isOrderReady,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+            ) {
+                Text("Eskaera Gorde")
+            }
+        }
+    }
+
+    if (mahaiDialog) {
+        AlertDialog(
+            onDismissRequest = { mahaiDialog = false },
+            title = { Text("Mahai libreak") },
+            text = {
+                Column {
+                    mahaiLibreak.forEach { m ->
+                        Text(
+                            text = "Mahaia ${m.zenbakia}",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    mahaiaHautatua = m
+                                    mahaiDialog = false
+                                    komensalDialog = true
+                                }
+                                .padding(8.dp)
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { mahaiDialog = false }) {
+                    Text("Itxi")
+                }
+            }
         )
     }
+
+    if (komensalDialog) {
+        var komensalText by remember { mutableStateOf(komensalak?.toString() ?: "") }
+        AlertDialog(
+            onDismissRequest = { komensalDialog = false },
+            title = { Text("Komensalak") },
+            text = {
+                OutlinedTextField(
+                    value = komensalText,
+                    onValueChange = { komensalText = it.filter { ch -> ch.isDigit() } },
+                    singleLine = true,
+                    label = { Text("Pertsona kopurua") }
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        komensalak = komensalText.toIntOrNull()
+                        komensalDialog = false
+                    }
+                ) {
+                    Text("Gorde")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { komensalDialog = false }) {
+                    Text("Utzi")
+                }
+            }
+        )
+    }
+}
+
+private fun extractServerMessage(e: HttpException, fallback: String): String {
+    val body = e.response()?.errorBody()?.string()
+    if (!body.isNullOrBlank()) {
+        try {
+            val dto = Gson().fromJson(body, ErantzunaDTO::class.java)
+            val msg = (dto?.message as? String)?.trim()
+            if (!msg.isNullOrBlank()) return msg
+        } catch (_: JsonSyntaxException) {
+        }
+    }
+    return "$fallback (HTTP ${e.code()})"
 }
 
 // ----------------------------------------------------------------

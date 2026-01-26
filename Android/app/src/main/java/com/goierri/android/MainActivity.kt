@@ -14,6 +14,8 @@ import kotlinx.coroutines.launch
 import android.util.Log
 import retrofit2.HttpException
 import java.io.IOException
+import com.google.gson.Gson
+import com.google.gson.JsonSyntaxException
 
 class MainActivity : ComponentActivity() {
 
@@ -24,12 +26,19 @@ class MainActivity : ComponentActivity() {
             MaterialTheme {
 
                 var loggedIn by remember { mutableStateOf(false) }
-                var usuarioNombre by remember { mutableStateOf("") }
+                var usuario by remember { mutableStateOf<Erabiltzailea?>(null) }
 
                 Surface(modifier = Modifier.fillMaxSize()) {
 
-                    if (loggedIn) {
-                        EskaeraTPVScreen()
+                    if (loggedIn && usuario != null) {
+                        EskaeraTPVScreen(
+                            erabiltzaileId = usuario!!.id,
+                            erabiltzaileIzena = usuario!!.erabiltzailea,
+                            onLogout = {
+                                usuario = null
+                                loggedIn = false
+                            }
+                        )
                     } else {
                         LoginScreen { erabiltzailea, pasahitza ->
 
@@ -46,30 +55,38 @@ class MainActivity : ComponentActivity() {
 
                                     Log.d("Login", "Respuesta API: $response")
 
-                                    // ✅ Usuario correcto
-                                    if (!response.ezabatua) {
-                                        usuarioNombre = response.erabiltzailea
-                                        loggedIn = true
-                                        Toast.makeText(
-                                            this@MainActivity,
-                                            "Usuario correcto",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
+                                    val erabiltzaileak = response.datuak
+                                    if (response.code == 200 && !erabiltzaileak.isNullOrEmpty()) {
+                                        val user = erabiltzaileak.first()
+                                        if (!user.ezabatua) {
+                                            usuario = user
+                                            loggedIn = true
+                                            Toast.makeText(
+                                                this@MainActivity,
+                                                "Saioa ondo hasi da",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        } else {
+                                            Toast.makeText(
+                                                this@MainActivity,
+                                                "Erabiltzailea ez dago aktibo",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
                                     } else {
-                                        // ❌ Usuario marcado como eliminado
                                         Toast.makeText(
                                             this@MainActivity,
-                                            "Login akatsa",
+                                            response.message.ifBlank { "Login akatsa" },
                                             Toast.LENGTH_SHORT
                                         ).show()
                                     }
 
                                 } catch (e: HttpException) {
-                                    // Error HTTP (como 401 Unauthorized)
                                     Log.e("MainActivity", "Error HTTP", e)
+                                    val message = extractErrorMessage(e)
                                     Toast.makeText(
                                         this@MainActivity,
-                                        "Login akatsa",
+                                        message,
                                         Toast.LENGTH_SHORT
                                     ).show()
 
@@ -96,5 +113,28 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+}
+
+private fun extractErrorMessage(e: HttpException): String {
+    val code = e.code()
+    val body = e.response()?.errorBody()?.string()
+
+    if (!body.isNullOrBlank()) {
+        try {
+            val dto = Gson().fromJson(body, ErantzunaDTO::class.java)
+            val msg = (dto?.message as? String)?.trim()
+            if (!msg.isNullOrBlank()) {
+                return msg
+            }
+        } catch (_: JsonSyntaxException) {
+            // ignore parsing error
+        }
+    }
+
+    return if (code == 401) {
+        "Erabiltzaile edo pasahitz okerra"
+    } else {
+        "Login akatsa (HTTP $code)"
     }
 }

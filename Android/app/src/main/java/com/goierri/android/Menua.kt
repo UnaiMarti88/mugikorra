@@ -17,7 +17,8 @@ fun Menua(
     onCloseMenu: () -> Unit,
     onEskaeraEginClick: () -> Unit,
     onEskaeraIkusiClick: () -> Unit,
-    onMahiakIkusiClick: () -> Unit
+    onMahiakIkusiClick: () -> Unit,
+    onLogoutClick: () -> Unit
 ) {
     if (!menuAbierto) return
 
@@ -36,7 +37,6 @@ fun Menua(
                 .background(Color(0xFF1565C0))
                 .padding(16.dp)
                 .clickable(enabled = false) {}, // evita que clics dentro cierren el menú
-            verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Button(
@@ -68,6 +68,17 @@ fun Menua(
                     .height(60.dp)
             ) {
                 Text("Mahiak Ikusi", fontSize = 18.sp)
+            }
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            Button(
+                onClick = onLogoutClick,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+            ) {
+                Text("Saioa itxi", fontSize = 16.sp)
             }
         }
     }
