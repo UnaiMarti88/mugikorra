@@ -45,7 +45,7 @@ CREATE TABLE `erabiltzaileak` (
 
 LOCK TABLES `erabiltzaileak` WRITE;
 /*!40000 ALTER TABLE `erabiltzaileak` DISABLE KEYS */;
-INSERT INTO `erabiltzaileak` VALUES (1,'Aitor','aitor@example.com','1234',1,0,0),(2,'Jon','jon@example.com','1234',2,0,0),(3,'fufy','s','1223',2,1,0),(4,'ff','ff','1234',1,1,0),(5,'ed','dede','aitor',2,1,1),(6,'wf','ere@','1233',2,0,0),(7,'Admin','Admin@gmail','12',1,0,1),(8,'Unai','Una@asa','1234',2,0,1);
+INSERT INTO `erabiltzaileak` VALUES (1,'Aitor','aitor@example.com','1234',1,0,0),(2,'Jon','jon@example.com','1234',2,0,1),(3,'fufy','s','1223',2,1,0),(4,'ff','ff','1234',1,1,0),(5,'ed','dede','aitor',2,1,1),(6,'wf','ere@','1233',2,0,0),(7,'Admin','Admin@gmail','12',1,0,1),(8,'Unai','Una@asa','1234',2,0,1);
 /*!40000 ALTER TABLE `erabiltzaileak` ENABLE KEYS */;
 UNLOCK TABLES;
 

@@ -19,6 +19,8 @@ import com.google.gson.JsonSyntaxException
 
 class MainActivity : ComponentActivity() {
 
+    private var chatManager: ChatManager? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -37,7 +39,12 @@ class MainActivity : ComponentActivity() {
                             onLogout = {
                                 usuario = null
                                 loggedIn = false
-                            }
+                                chatManager?.deskonektatu()
+                                chatManager = null
+                            },
+                            activity = this@MainActivity,
+                            tieneChatAcceso = usuario!!.txat,
+                            chatManager = chatManager
                         )
                     } else {
                         LoginScreen { erabiltzailea, pasahitza ->
@@ -61,6 +68,15 @@ class MainActivity : ComponentActivity() {
                                         if (!user.ezabatua) {
                                             usuario = user
                                             loggedIn = true
+                                            
+                                            // Conectar al chat
+                                            if (user.txat) {
+                                                chatManager = ChatManager("192.168.2.103", 50001, user.erabiltzailea)
+                                                lifecycleScope.launch {
+                                                    chatManager?.konektatu(lifecycleScope)
+                                                }
+                                            }
+                                            
                                             Toast.makeText(
                                                 this@MainActivity,
                                                 "Saioa ondo hasi da",

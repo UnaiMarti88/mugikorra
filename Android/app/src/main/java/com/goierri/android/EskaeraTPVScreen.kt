@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,32 +33,86 @@ import java.util.*
 private enum class TPVView {
     ESKAERA_EGIN,
     ESKAERA_IKUSI,
-    MAHAIAK_IKUSI
+    MAHAIAK_IKUSI,
+    CHAT
 }
 
 @Composable
 fun EskaeraTPVScreen(
     erabiltzaileId: Int,
     erabiltzaileIzena: String,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    activity: android.app.Activity? = null,
+    tieneChatAcceso: Boolean = false,
+    chatManager: ChatManager? = null
 ) {
     var menuAbierto by remember { mutableStateOf(false) }
     var view by remember { mutableStateOf(TPVView.ESKAERA_EGIN) }
+    var tieneNotificacionChat by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    
+    // Listener para notificaciones del chat
+    val onMensajeRecibidoGlobal = { _: String ->
+        if (view != TPVView.CHAT) {
+            tieneNotificacionChat = true
+        }
+    }
+    
+    // Subscribirse a mensajes cuando entra
+    LaunchedEffect(chatManager) {
+        chatManager?.subscribirseAMensajes(onMensajeRecibidoGlobal)
+    }
+    
+    // Desuscribirse cuando sale
+    DisposableEffect(chatManager) {
+        onDispose {
+            chatManager?.desuscribirse(onMensajeRecibidoGlobal)
+        }
+    }
+    
+    // Estado compartido para mesa y comensales (se mantiene al cambiar de vista)
+    var mahaiaHautatua by remember { mutableStateOf<MahaiaDTO?>(null) }
+    var komensalak by remember { mutableStateOf<Int?>(null) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
             HeaderTPV(
                 modifier = Modifier.height(100.dp),
-                onMenuClick = { menuAbierto = !menuAbierto }
+                onMenuClick = { menuAbierto = !menuAbierto },
+                onChatClick = {
+                    if (tieneChatAcceso) {
+                        view = TPVView.CHAT
+                        tieneNotificacionChat = false
+                    } else {
+                        Toast.makeText(context, "Ez duzu txatara sartzeko baimenik", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                chatHabilitado = tieneChatAcceso,
+                tieneNotificacion = tieneNotificacionChat
             )
 
             when (view) {
                 TPVView.ESKAERA_EGIN -> EskaeraEginContent(
                     erabiltzaileId = erabiltzaileId,
-                    erabiltzaileIzena = erabiltzaileIzena
+                    erabiltzaileIzena = erabiltzaileIzena,
+                    mahaiaHautatua = mahaiaHautatua,
+                    onMahaiaChange = { mahaiaHautatua = it },
+                    komensalak = komensalak,
+                    onKomensalakChange = { komensalak = it }
                 )
                 TPVView.ESKAERA_IKUSI -> EskaeraIkusiScreen()
                 TPVView.MAHAIAK_IKUSI -> MahaiakIkusiScreen()
+                TPVView.CHAT -> {
+                    if (activity != null) {
+                        ChatScreen(
+                            erabiltzaileIzena = erabiltzaileIzena,
+                            onBackClick = { view = TPVView.ESKAERA_EGIN },
+                            activity = activity,
+                            chatManager = chatManager
+                        )
+                        tieneNotificacionChat = false
+                    }
+                }
             }
         }
 
@@ -87,7 +142,11 @@ fun EskaeraTPVScreen(
 @Composable
 private fun EskaeraEginContent(
     erabiltzaileId: Int,
-    erabiltzaileIzena: String
+    erabiltzaileIzena: String,
+    mahaiaHautatua: MahaiaDTO?,
+    onMahaiaChange: (MahaiaDTO?) -> Unit,
+    komensalak: Int?,
+    onKomensalakChange: (Int?) -> Unit
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -98,8 +157,6 @@ private fun EskaeraEginContent(
     var eskaera by remember { mutableStateOf<List<OrderItem>>(emptyList()) }
 
     var hautatutakoItem by remember { mutableStateOf<OrderItem?>(null) }
-    var mahaiaHautatua by remember { mutableStateOf<MahaiaDTO?>(null) }
-    var komensalak by remember { mutableStateOf<Int?>(null) }
     var mahaiLibreak by remember { mutableStateOf<List<MahaiaDTO>>(emptyList()) }
     var mahaiKapasitatea by remember { mutableStateOf<Int?>(null) }
 
@@ -418,7 +475,7 @@ private fun EskaeraEginContent(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
-                                    mahaiaHautatua = m
+                                    onMahaiaChange(m)
                                     mahaiDialog = false
                                     scope.launch {
                                         try {
@@ -471,7 +528,7 @@ private fun EskaeraEginContent(
                             Toast.makeText(context, "Gehienez $max pertsona", Toast.LENGTH_SHORT).show()
                             return@TextButton
                         }
-                        komensalak = value
+                        onKomensalakChange(value)
                         komensalDialog = false
                     }
                 ) {
@@ -504,7 +561,7 @@ private fun extractServerMessage(e: HttpException, fallback: String): String {
 // HEADER CON HORA Y MENÚ
 // ----------------------------------------------------------------
 @Composable
-fun HeaderTPV(modifier: Modifier = Modifier, onMenuClick: () -> Unit) {
+fun HeaderTPV(modifier: Modifier = Modifier, onMenuClick: () -> Unit, onChatClick: () -> Unit, chatHabilitado: Boolean = true, tieneNotificacion: Boolean = false) {
     var horaActual by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
@@ -526,7 +583,23 @@ fun HeaderTPV(modifier: Modifier = Modifier, onMenuClick: () -> Unit) {
         Text("☰", fontSize = 32.sp, modifier = Modifier.clickable { onMenuClick() })
 
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("💬", fontSize = 28.sp)
+            Box(contentAlignment = Alignment.TopEnd) {
+                Text(
+                    "💬",
+                    fontSize = 28.sp,
+                    modifier = Modifier
+                        .clickable(enabled = chatHabilitado) { onChatClick() }
+                        .alpha(if (chatHabilitado) 1f else 0.5f)
+                )
+                if (tieneNotificacion && chatHabilitado) {
+                    Box(
+                        modifier = Modifier
+                            .size(12.dp)
+                            .background(Color.Red, shape = CircleShape)
+                            .offset((-4).dp, 2.dp)
+                    )
+                }
+            }
             Spacer(modifier = Modifier.width(8.dp))
             Text(horaActual, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         }
