@@ -69,6 +69,20 @@ class MainActivity : ComponentActivity() {
                                             usuario = user
                                             loggedIn = true
                                             
+                                            // Log: login correcto
+                                            try {
+                                                lifecycleScope.launch {
+                                                    ApiClient.apiService.gordeLog(
+                                                        LogRequest(
+                                                            erabiltzailea = user.id,
+                                                            ekintza = "Login arrakastatsua (${user.erabiltzailea})"
+                                                        )
+                                                    )
+                                                }
+                                            } catch (_: Exception) {
+                                                // No romper el login si el log falla
+                                            }
+                                            
                                             // Conectar al chat
                                             if (user.txat) {
                                                 chatManager = ChatManager("192.168.2.103", 50001, user.erabiltzailea)
@@ -90,6 +104,18 @@ class MainActivity : ComponentActivity() {
                                             ).show()
                                         }
                                     } else {
+                                        // Log: login fallido
+                                        try {
+                                            lifecycleScope.launch {
+                                                ApiClient.apiService.gordeLog(
+                                                    LogRequest(
+                                                        erabiltzailea = 0,
+                                                        ekintza = "Login huts egin du: $erabiltzailea"
+                                                    )
+                                                )
+                                            }
+                                        } catch (_: Exception) {
+                                        }
                                         Toast.makeText(
                                             this@MainActivity,
                                             response.message.ifBlank { "Login akatsa" },
@@ -100,6 +126,18 @@ class MainActivity : ComponentActivity() {
                                 } catch (e: HttpException) {
                                     Log.e("MainActivity", "Error HTTP", e)
                                     val message = extractErrorMessage(e)
+                                    // Log: error HTTP en login
+                                    try {
+                                        lifecycleScope.launch {
+                                            ApiClient.apiService.gordeLog(
+                                                LogRequest(
+                                                    erabiltzailea = 0,
+                                                    ekintza = "Login HTTP errorea: $erabiltzailea (${e.code()})"
+                                                )
+                                            )
+                                        }
+                                    } catch (_: Exception) {
+                                    }
                                     Toast.makeText(
                                         this@MainActivity,
                                         message,
@@ -109,6 +147,18 @@ class MainActivity : ComponentActivity() {
                                 } catch (e: IOException) {
                                     // Error de red
                                     Log.e("MainActivity", "Error de conexión", e)
+                                    // Log: error de red en login
+                                    try {
+                                        lifecycleScope.launch {
+                                            ApiClient.apiService.gordeLog(
+                                                LogRequest(
+                                                    erabiltzailea = 0,
+                                                    ekintza = "Login konexio errorea: $erabiltzailea"
+                                                )
+                                            )
+                                        }
+                                    } catch (_: Exception) {
+                                    }
                                     Toast.makeText(
                                         this@MainActivity,
                                         "Konexio errorea: ${e.localizedMessage}",
@@ -117,6 +167,18 @@ class MainActivity : ComponentActivity() {
 
                                 } catch (e: Exception) {
                                     Log.e("MainActivity", "Error inesperado", e)
+                                    // Log: error inesperado en login
+                                    try {
+                                        lifecycleScope.launch {
+                                            ApiClient.apiService.gordeLog(
+                                                LogRequest(
+                                                    erabiltzailea = 0,
+                                                    ekintza = "Login errore ezezaguna: $erabiltzailea"
+                                                )
+                                            )
+                                        }
+                                    } catch (_: Exception) {
+                                    }
                                     Toast.makeText(
                                         this@MainActivity,
                                         "Login akatsa",

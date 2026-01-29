@@ -78,6 +78,7 @@ fun EskaeraTPVScreen(
         Column(modifier = Modifier.fillMaxSize()) {
             HeaderTPV(
                 modifier = Modifier.height(100.dp),
+                erabiltzaileIzena = erabiltzaileIzena,
                 onMenuClick = { menuAbierto = !menuAbierto },
                 onChatClick = {
                     if (tieneChatAcceso) {
@@ -105,6 +106,7 @@ fun EskaeraTPVScreen(
                 TPVView.CHAT -> {
                     if (activity != null) {
                         ChatScreen(
+                            erabiltzaileId = erabiltzaileId,
                             erabiltzaileIzena = erabiltzaileIzena,
                             onBackClick = { view = TPVView.ESKAERA_EGIN },
                             activity = activity,
@@ -208,24 +210,65 @@ private fun EskaeraEginContent(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .background(Color.White)
+                    .background(Color(0xFFF5F5F5))
                     .padding(8.dp)
             ) {
-                items(eskaera) { item ->
-                    val selected = item == hautatutakoItem
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(if (selected) Color(0xFFB3E5FC) else Color.Transparent)
-                            .then(
-                                if (isOrderReady) Modifier.clickable { hautatutakoItem = item } else Modifier
+                if (eskaera.isEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("Ez dago produkturik", color = Color.Gray)
+                        }
+                    }
+                } else {
+                    items(eskaera) { item ->
+                        val selected = item == hautatutakoItem
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                                .then(
+                                    if (isOrderReady) Modifier.clickable { hautatutakoItem = item } else Modifier
+                                ),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (selected) Color(0xFF1976D2) else Color.White
+                            ),
+                            elevation = CardDefaults.cardElevation(
+                                defaultElevation = if (selected) 6.dp else 2.dp
                             )
-                            .padding(4.dp)
-                    ) {
-                        Text(
-                            text = "• ${item.produktua.izena} x${item.kantitatea} - ${String.format(Locale.getDefault(), "%.2f", item.produktua.prezioa)} €",
-                            fontSize = 16.sp
-                        )
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "🍽️ ${item.produktua.izena}",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp,
+                                        color = if (selected) Color.White else Color.Black
+                                    )
+                                    Text(
+                                        text = "x${item.kantitatea}",
+                                        fontSize = 12.sp,
+                                        color = if (selected) Color(0xFFBBDEFB) else Color.Gray
+                                    )
+                                }
+                                Text(
+                                    text = "${String.format(Locale.getDefault(), "%.2f", item.produktua.prezioa)} €",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
+                                    color = if (selected) Color(0xFFC8E6C9) else Color(0xFF1976D2)
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -322,11 +365,16 @@ private fun EskaeraEginContent(
         Column(
             modifier = Modifier
                 .weight(0.3f)
-                .fillMaxHeight(0.6f)
+                .fillMaxHeight()
                 .padding(4.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Button(
+            // Bloque de botones (arriba)
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
                 onClick = {
                     Toast.makeText(
                         context,
@@ -335,11 +383,12 @@ private fun EskaeraEginContent(
                     ).show()
                 },
                 enabled = isOrderReady,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3)),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp)
             ) {
-                Text("Diru Totala")
+                Text("💰 Diru Totala", fontWeight = FontWeight.Bold, fontSize = 16.sp)
             }
 
             Button(
@@ -364,11 +413,12 @@ private fun EskaeraEginContent(
                     }
                 },
                 enabled = isOrderReady,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF9800)),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp)
             ) {
-                Text("Ilara Ezabatu")
+                Text("🗑️ Ilara Ezabatu", fontWeight = FontWeight.Bold, fontSize = 16.sp)
             }
 
             Button(
@@ -392,11 +442,12 @@ private fun EskaeraEginContent(
                         }
                     }
                 },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp)
             ) {
-                Text("Mahia Aukeratu")
+                Text("🪑 Mahia Aukeratu", fontWeight = FontWeight.Bold, fontSize = 16.sp)
             }
 
             Button(
@@ -432,8 +483,21 @@ private fun EskaeraEginContent(
                             val response = ApiClient.apiService.sortuEskaera(request)
                             if (response.code == 200) {
                                 Toast.makeText(context, "Eskaera ongi gorde da", Toast.LENGTH_SHORT).show()
+                                // Log: eskaera berria sortu da
+                                try {
+                                    ApiClient.apiService.gordeLog(
+                                        LogRequest(
+                                            erabiltzailea = erabiltzaileId,
+                                            ekintza = "Eskaera berria sortu da. Mahaia=${mahaiaHautatua!!.zenbakia}, Guztira=${String.format(Locale.getDefault(), "%.2f", guztira)}€"
+                                        )
+                                    )
+                                } catch (_: Exception) {
+                                }
+                                // Garbitu eskaera eta mahaia / komensalak, mahaia libre uzteko hurrengo eskaerarako
                                 eskaera = emptyList()
                                 hautatutakoItem = null
+                                onMahaiaChange(null)
+                                onKomensalakChange(null)
                             } else {
                                 val extra = if (!response.datuak.isNullOrEmpty()) {
                                     " (${response.datuak.joinToString(", ")})"
@@ -454,11 +518,52 @@ private fun EskaeraEginContent(
                     }
                 },
                 enabled = isOrderReady,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1976D2)),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp)
             ) {
-                Text("Eskaera Gorde")
+                Text("✅ Eskaera Gorde", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            }
+            }
+
+            // Usuario y Hora abajo del todo a la derecha
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFFF5F5F5))
+                    .padding(8.dp),
+                horizontalAlignment = Alignment.End
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Image(
+                        painter = painterResource(id = R.drawable.usuario),
+                        contentDescription = "Erabiltzaile ikonoa",
+                        modifier = Modifier
+                            .size(24.dp)
+                            .background(Color.White, shape = CircleShape)
+                            .padding(2.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        erabiltzaileIzena,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                var horaActual by remember { mutableStateOf("") }
+
+                LaunchedEffect(Unit) {
+                    while (true) {
+                        val sdf = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+                        horaActual = sdf.format(Date())
+                        kotlinx.coroutines.delay(1000)
+                    }
+                }
+
+                Text(horaActual, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.DarkGray)
             }
         }
     }
@@ -479,6 +584,16 @@ private fun EskaeraEginContent(
                                     mahaiDialog = false
                                     scope.launch {
                                         try {
+                                            // Log: mahaia hautatu da (hemen bai, coroutine barruan)
+                                            try {
+                                                ApiClient.apiService.gordeLog(
+                                                    LogRequest(
+                                                        erabiltzailea = erabiltzaileId,
+                                                        ekintza = "Mahaia hautatu da: ${m.zenbakia}"
+                                                    )
+                                                )
+                                            } catch (_: Exception) {
+                                            }
                                             val resp = ApiClient.apiService.getMahaiKapasitatea(m.id)
                                             mahaiKapasitatea = resp.datuak?.firstOrNull()
                                         } catch (e: Exception) {
@@ -558,50 +673,45 @@ private fun extractServerMessage(e: HttpException, fallback: String): String {
 }
 
 // ----------------------------------------------------------------
-// HEADER CON HORA Y MENÚ
+// HEADER CON MENÚ Y CHAT
 // ----------------------------------------------------------------
 @Composable
-fun HeaderTPV(modifier: Modifier = Modifier, onMenuClick: () -> Unit, onChatClick: () -> Unit, chatHabilitado: Boolean = true, tieneNotificacion: Boolean = false) {
-    var horaActual by remember { mutableStateOf("") }
-
-    LaunchedEffect(Unit) {
-        while (true) {
-            val sdf = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
-            horaActual = sdf.format(Date())
-            kotlinx.coroutines.delay(1000)
-        }
-    }
-
+fun HeaderTPV(
+    modifier: Modifier = Modifier, 
+    erabiltzaileIzena: String = "",
+    onMenuClick: () -> Unit, 
+    onChatClick: () -> Unit, 
+    chatHabilitado: Boolean = true, 
+    tieneNotificacion: Boolean = false
+) {
     Row(
         modifier = modifier
             .fillMaxWidth()
             .background(Color(0xFF5F9EA0))
-            .padding(horizontal = 12.dp),
+            .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text("☰", fontSize = 32.sp, modifier = Modifier.clickable { onMenuClick() })
-
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(contentAlignment = Alignment.TopEnd) {
-                Text(
-                    "💬",
-                    fontSize = 28.sp,
+        // Izquierda: Menú
+        Text("☰", fontSize = 32.sp, modifier = Modifier.clickable { onMenuClick() }, color = Color.White)
+        
+        // Derecha: Chat
+        Box(contentAlignment = Alignment.TopEnd) {
+            Text(
+                "💬",
+                fontSize = 28.sp,
+                modifier = Modifier
+                    .clickable(enabled = chatHabilitado) { onChatClick() }
+                    .alpha(if (chatHabilitado) 1f else 0.5f)
+            )
+            if (tieneNotificacion && chatHabilitado) {
+                Box(
                     modifier = Modifier
-                        .clickable(enabled = chatHabilitado) { onChatClick() }
-                        .alpha(if (chatHabilitado) 1f else 0.5f)
+                        .size(12.dp)
+                        .background(Color.Red, shape = CircleShape)
+                        .offset((-4).dp, 2.dp)
                 )
-                if (tieneNotificacion && chatHabilitado) {
-                    Box(
-                        modifier = Modifier
-                            .size(12.dp)
-                            .background(Color.Red, shape = CircleShape)
-                            .offset((-4).dp, 2.dp)
-                    )
-                }
             }
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(horaActual, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         }
     }
 }

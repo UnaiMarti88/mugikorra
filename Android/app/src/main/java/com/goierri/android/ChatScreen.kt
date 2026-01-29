@@ -2,6 +2,7 @@ package com.goierri.android
 
 import android.util.Log
 import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -19,12 +20,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
+    erabiltzaileId: Int,
     erabiltzaileIzena: String,
     onBackClick: () -> Unit,
     activity: android.app.Activity,
@@ -76,7 +77,13 @@ fun ChatScreen(
     Column(modifier = Modifier.fillMaxSize().background(Color.White)) {
         // Header
         TopAppBar(
-            title = { Text("Txata - $erabiltzaileIzena") },
+            title = {
+                Text(
+                    text = "TXATA",
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            },
             navigationIcon = {
                 IconButton(onClick = onBackClick) {
                     Icon(Icons.Filled.ArrowBack, contentDescription = "Itzuli")
@@ -156,6 +163,17 @@ fun ChatScreen(
                                         "Ezin izan da mezua bidali",
                                         Toast.LENGTH_SHORT
                                     ).show()
+                                } else {
+                                    // Log: mezua bidalia
+                                    try {
+                                        ApiClient.apiService.gordeLog(
+                                            LogRequest(
+                                                erabiltzailea = erabiltzaileId,
+                                                ekintza = "Txat mezua bidalia: ${mensajeActual.take(100)}"
+                                            )
+                                        )
+                                    } catch (_: Exception) {
+                                    }
                                 }
                                 mensajeActual = ""
                             }
@@ -174,10 +192,11 @@ fun ChatScreen(
 
 @Composable
 private fun MensajeItem(mensaje: String, usuarioActual: String) {
-    val parts = mensaje.split(": ", limit = 2)
-    val usuario = if (parts.size > 1) parts[0] else "Deskonozitu"
-    val contenido = if (parts.size > 1) parts[1] else mensaje
+    val parts = mensaje.split(":" , limit = 2)
+    val usuario = if (parts.size > 1) parts[0].trim() else "Deskonozitu"
+    val contenido = if (parts.size > 1) parts[1].trim() else mensaje
     val esMio = usuario == usuarioActual
+    val textoMostrar = if (parts.size > 1) "$usuario: $contenido" else mensaje
 
     Row(
         modifier = Modifier
@@ -189,25 +208,17 @@ private fun MensajeItem(mensaje: String, usuarioActual: String) {
             modifier = Modifier
                 .fillMaxWidth(0.8f)
                 .padding(horizontal = 8.dp),
-            shape = RoundedCornerShape(8.dp),
+            shape = RoundedCornerShape(50),
             colors = CardDefaults.cardColors(
                 containerColor = if (esMio) Color(0xFF90CAF9) else Color(0xFFE3F2FD)
             ),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
-            Column(modifier = Modifier.padding(8.dp)) {
-                if (!esMio) {
-                    Text(
-                        text = usuario,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1E3A8A),
-                        fontSize = 12.sp
-                    )
-                }
+            Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
                 Text(
-                    text = contenido,
+                    text = textoMostrar,
                     color = if (esMio) Color.White else Color.Black,
-                    fontSize = 14.sp
+                    fontSize = 13.sp
                 )
             }
         }

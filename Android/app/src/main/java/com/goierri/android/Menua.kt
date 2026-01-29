@@ -22,21 +22,18 @@ fun Menua(
 ) {
     if (!menuAbierto) return
 
-    // Capa semitransparente que detecta clics fuera del menú
-    Box(
+    Row(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xCC000000))
-            .clickable { onCloseMenu() } // clic fuera cierra el menú
     ) {
-        // Menú lateral
+        // Panel del menú lateral (no cierra al hacer clic dentro)
         Column(
             modifier = Modifier
                 .fillMaxHeight()
                 .width(250.dp)
                 .background(Color(0xFF1565C0))
-                .padding(16.dp)
-                .clickable(enabled = false) {}, // evita que clics dentro cierren el menú
+                .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Button(
@@ -81,5 +78,13 @@ fun Menua(
                 Text("Saioa itxi", fontSize = 16.sp)
             }
         }
+
+        // Zona oscura a la derecha que sí cierra el menú al hacer clic
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .clickable { onCloseMenu() }
+        ) {}
     }
 }

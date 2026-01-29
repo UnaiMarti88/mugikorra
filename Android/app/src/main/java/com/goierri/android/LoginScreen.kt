@@ -1,5 +1,6 @@
 package com.goierri.android
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -10,6 +11,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -41,7 +43,11 @@ fun LoginScreen(onLogin: (String, String) -> Unit) {
                     .clip(CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                // Puedes poner un icono aquí
+                Image(
+                    painter = painterResource(id = R.drawable.usuario),
+                    contentDescription = "Erabiltzaile ikonoa",
+                    modifier = Modifier.fillMaxSize()
+                )
             }
 
             Spacer(modifier = Modifier.height(32.dp))

@@ -36,25 +36,6 @@ fun EskaeraIkusiScreen() {
     var editMode by remember { mutableStateOf(false) }
     var deleteConfirm by remember { mutableStateOf(false) }
 
-    fun kargatuEskaerak() {
-        scope.launch {
-            loading = true
-            try {
-                val response = ApiClient.apiService.getEskaerak()
-                if (response.code == 200) {
-                    eskaerak = response.datuak ?: emptyList()
-                } else {
-                    Toast.makeText(context, response.message, Toast.LENGTH_SHORT).show()
-                }
-            } catch (e: Exception) {
-                Log.e("EskaeraIkusi", "Eskaerak kargatzean errorea", e)
-                Toast.makeText(context, "Ezin dira eskaerak kargatu", Toast.LENGTH_SHORT).show()
-            } finally {
-                loading = false
-            }
-        }
-    }
-
     fun kargatuProduktuak(eskaeraId: Int) {
         scope.launch {
             try {
@@ -67,6 +48,36 @@ fun EskaeraIkusiScreen() {
             } catch (e: Exception) {
                 Log.e("EskaeraIkusi", "Produktuak kargatzean errorea", e)
                 Toast.makeText(context, "Ezin dira produktuak kargatu", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    fun kargatuEskaerak(berrituAukeratua: Boolean = false) {
+        scope.launch {
+            loading = true
+            try {
+                val response = ApiClient.apiService.getEskaerak()
+                if (response.code == 200) {
+                    eskaerak = response.datuak ?: emptyList()
+
+                    if (berrituAukeratua && hautatutakoEskaera != null) {
+                        val id = hautatutakoEskaera!!.id
+                        val berria = eskaerak.firstOrNull { it.id == id }
+                        hautatutakoEskaera = berria
+                        if (berria != null) {
+                            kargatuProduktuak(berria.id)
+                        } else {
+                            produktuak = emptyList()
+                        }
+                    }
+                } else {
+                    Toast.makeText(context, response.message, Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Log.e("EskaeraIkusi", "Eskaerak kargatzean errorea", e)
+                Toast.makeText(context, "Ezin dira eskaerak kargatu", Toast.LENGTH_SHORT).show()
+            } finally {
+                loading = false
             }
         }
     }
@@ -90,10 +101,10 @@ fun EskaeraIkusiScreen() {
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(8.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Eskaerak", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            TextButton(onClick = { kargatuEskaerak() }) {
-                Text("Berritu")
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("📋 Eskaerak", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            TextButton(onClick = { kargatuEskaerak(berrituAukeratua = true) }) {
+                Text("🔄 Berritu", fontWeight = FontWeight.Bold)
             }
         }
 
@@ -108,12 +119,17 @@ fun EskaeraIkusiScreen() {
                 modifier = Modifier
                     .weight(0.5f)
                     .fillMaxHeight()
-                    .background(Color.White)
+                    .background(Color(0xFFF5F5F5))
                     .padding(8.dp)
             ) {
                 if (eskaerak.isEmpty()) {
                     item {
-                        Text("Ez dago eskaerarik")
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("Ez dago eskaerarik", color = Color.Gray)
+                        }
                     }
                 } else {
                     items(eskaerak) { eskaera ->
@@ -121,20 +137,21 @@ fun EskaeraIkusiScreen() {
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 4.dp)
+                                .padding(vertical = 6.dp)
                                 .clickable {
                                     hautatutakoEskaera = eskaera
                                     kargatuProduktuak(eskaera.id)
                                 },
                             colors = CardDefaults.cardColors(
-                                containerColor = if (selected) Color(0xFFB3E5FC) else Color(0xFFF5F5F5)
-                            )
+                                containerColor = if (selected) Color(0xFF1976D2) else Color.White
+                            ),
+                            elevation = CardDefaults.cardElevation(defaultElevation = if (selected) 8.dp else 2.dp)
                         ) {
-                            Column(modifier = Modifier.padding(8.dp)) {
-                                Text("Eskaera #${eskaera.id}", fontWeight = FontWeight.Bold)
-                                Text("Mahaia: ${eskaera.mahaiaId} · Komensalak: ${eskaera.komensalak}")
-                                Text("Sukaldea: ${eskaera.sukaldeaEgoera}")
-                                Text("Data: ${eskaera.data}")
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text("📌 Eskaera #${eskaera.id}", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = if (selected) Color.White else Color.Black)
+                                Text("🪑 Mahaia: ${eskaera.mahaiaId} | 👥 Komensalak: ${eskaera.komensalak}", fontSize = 12.sp, color = if (selected) Color(0xFFB3E5FC) else Color.DarkGray)
+                                Text("🍳 Sukaldea: ${eskaera.sukaldeaEgoera}", fontSize = 12.sp, color = if (selected) Color(0xFFC8E6C9) else Color.Gray)
+                                Text("📅 ${eskaera.data}", fontSize = 11.sp, color = if (selected) Color(0xFFE0E0E0) else Color.Gray)
                             }
                         }
                     }
@@ -147,47 +164,103 @@ fun EskaeraIkusiScreen() {
                 modifier = Modifier
                     .weight(0.5f)
                     .fillMaxHeight()
-                    .background(Color.White)
+                    .background(Color(0xFFF5F5F5))
                     .padding(8.dp)
             ) {
-                Text("Produktuak", fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.height(6.dp))
+                Text("📦 Produktuak", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Spacer(modifier = Modifier.height(8.dp))
 
                 val selectedEskaera = hautatutakoEskaera
                 if (selectedEskaera == null) {
-                    Text("Aukeratu eskaera bat")
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Aukeratu eskaera bat", color = Color.Gray)
+                    }
                 } else {
-                    Text("Sukaldea: ${selectedEskaera.sukaldeaEgoera}")
-                    Spacer(modifier = Modifier.height(6.dp))
+                    val egoeraKey = selectedEskaera.sukaldeaEgoera.trim().lowercase(Locale.getDefault())
+                    val egoeraColor = when (egoeraKey) {
+                        "zain" -> Color(0xFFFFC107)   // Horia, zain dagoenean
+                        "hasi" -> Color(0xFFFF9800)   // Laranja, martxan
+                        "prest" -> Color(0xFF4CAF50)  // Berdea, prest
+                        else -> Color(0xFF9E9E9E)      // Grisa, beste edo ezezaguna
+                    }
 
-                    if (produktuak.isEmpty()) {
-                        Text("Eskaeran ez dago produkturik")
-                    } else {
-                    val guztira = produktuak.sumOf { it.prezioUnitarioa * it.kantitatea }
-                    LazyColumn(modifier = Modifier.weight(1f)) {
-                        items(produktuak) { p ->
-                            Text("• ${p.produktuaIzena} - ${String.format(Locale.getDefault(), "%.2f", p.prezioUnitarioa)} €")
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp),
+                        colors = CardDefaults.cardColors(containerColor = egoeraColor)
+                    ) {
+                        Column(modifier = Modifier.padding(8.dp)) {
+                            Text("🍳 Sukaldea: ${selectedEskaera.sukaldeaEgoera}", fontWeight = FontWeight.Bold, color = Color.White)
                         }
                     }
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = "Guztira: ${String.format(Locale.getDefault(), "%.2f", guztira)} €",
-                        fontWeight = FontWeight.Bold
-                    )
+
+                    if (produktuak.isEmpty()) {
+                        Text("Eskaeran ez dago produkturik", color = Color.Gray)
+                    } else {
+                        val guztira = produktuak.sumOf { it.prezioUnitarioa * it.kantitatea }
+                        
+                        LazyColumn(modifier = Modifier.weight(1f)) {
+                            items(produktuak) { p ->
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp),
+                                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(8.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text("🍽️ ${p.produktuaIzena}", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                            Text("x${p.kantitatea}", fontSize = 11.sp, color = Color.Gray)
+                                        }
+                                        Text("${String.format(Locale.getDefault(), "%.2f", p.prezioUnitarioa)} €", fontWeight = FontWeight.Bold, color = Color(0xFF1976D2))
+                                    }
+                                }
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1976D2))
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("Guztira:", fontWeight = FontWeight.Bold, color = Color.White)
+                                Text("${String.format(Locale.getDefault(), "%.2f", guztira)} €", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color(0xFFC8E6C9))
+                            }
+                        }
                     }
+                    
                     Spacer(modifier = Modifier.height(8.dp))
                     Button(
                         onClick = { editMode = true },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
                     ) {
-                        Text("Editatu eskaera")
+                        Text("✏️ Editatu eskaera", fontWeight = FontWeight.Bold)
                     }
                     Spacer(modifier = Modifier.height(6.dp))
                     Button(
                         onClick = { deleteConfirm = true },
+                        modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
                     ) {
-                        Text("Eskaera ezabatu")
+                        Text("🗑️ Eskaera ezabatu", fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -209,6 +282,16 @@ fun EskaeraIkusiScreen() {
                                 val response = ApiClient.apiService.ezabatuEskaera(eskaeraId)
                                 if (response.code == 200) {
                                     Toast.makeText(context, "Eskaera ezabatu da", Toast.LENGTH_SHORT).show()
+                                    // Log: eskaera ezabatuta
+                                    try {
+                                        ApiClient.apiService.gordeLog(
+                                            LogRequest(
+                                                erabiltzailea = 0,
+                                                ekintza = "Eskaera ezabatu da: #$eskaeraId"
+                                            )
+                                        )
+                                    } catch (_: Exception) {
+                                    }
                                     hautatutakoEskaera = null
                                     produktuak = emptyList()
                                     kargatuEskaerak()
@@ -464,6 +547,16 @@ private fun EskaeraEditatuScreen(
                                 val response = ApiClient.apiService.eguneratuEskaera(eskaera.id, payload)
                                 if (response.code == 200) {
                                     Toast.makeText(context, "Eskaera eguneratu da", Toast.LENGTH_SHORT).show()
+                                    // Log: eskaera eguneratuta
+                                    try {
+                                        ApiClient.apiService.gordeLog(
+                                            LogRequest(
+                                                erabiltzailea = 0,
+                                                ekintza = "Eskaera eguneratu da: #${eskaera.id}, Guztira=${String.format(Locale.getDefault(), "%.2f", guztira)}€"
+                                            )
+                                        )
+                                    } catch (_: Exception) {
+                                    }
                                     onSaved()
                                 } else {
                                     Toast.makeText(context, response.message, Toast.LENGTH_SHORT).show()

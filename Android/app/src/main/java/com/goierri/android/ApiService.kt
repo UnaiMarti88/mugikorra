@@ -7,6 +7,12 @@ import retrofit2.http.Path
 import retrofit2.http.PUT
 import retrofit2.http.DELETE
 
+// DTO para el log, equivalente a LogDTO de la API
+data class LogRequest(
+    val erabiltzailea: Int,
+    val ekintza: String
+)
+
 interface ApiService {
 
     // 🔐 Login
@@ -58,4 +64,10 @@ interface ApiService {
     suspend fun ezabatuEskaera(
         @Path("id") eskaeraId: Int
     ): ErantzunaDTO<String>
+
+    // 🧾 Log ekintzak (se corresponde con api/LogKontrollerra/gorde)
+    @POST("api/LogKontrollerra/gorde")
+    suspend fun gordeLog(
+        @Body log: LogRequest
+    ): retrofit2.Response<Unit>
 }
