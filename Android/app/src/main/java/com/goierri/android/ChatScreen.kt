@@ -4,13 +4,16 @@ import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,6 +30,7 @@ import kotlinx.coroutines.launch
 fun ChatScreen(
     erabiltzaileId: Int,
     erabiltzaileIzena: String,
+    onMenuClick: () -> Unit = {},
     onBackClick: () -> Unit,
     activity: android.app.Activity,
     chatManager: ChatManager? = null,
@@ -60,12 +64,7 @@ fun ChatScreen(
         }
     }
 
-    // Auto-scroll cuando hay nuevos mensajes
-    LaunchedEffect(mensajes.size) {
-        if (mensajes.isNotEmpty()) {
-            listState.animateScrollToItem(mensajes.size - 1)
-        }
-    }
+    // Mantener la posición elegida por el usuario; no auto-scroll al final
 
     // Desuscribirse al cerrar la pantalla
     DisposableEffect(Unit) {
@@ -74,24 +73,21 @@ fun ChatScreen(
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize().background(Color.White)) {
-        // Header
-        TopAppBar(
-            title = {
-                Text(
-                    text = "TXATA",
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-            },
-            navigationIcon = {
-                IconButton(onClick = onBackClick) {
-                    Icon(Icons.Filled.ArrowBack, contentDescription = "Itzuli")
-                }
-            },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = Color(0xFF5F9EA0)
-            )
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+            .imePadding()
+    ) {
+        // Header reutilizando el mismo componente que en EskaeraTPVScreen
+        HeaderTPV(
+            modifier = Modifier.height(100.dp),
+            erabiltzaileIzena = erabiltzaileIzena,
+            onMenuClick = onMenuClick,
+            onChatClick = {},
+            chatHabilitado = false,
+            tieneNotificacion = false,
+            centerTitle = "TXATA"
         )
 
         // Estado de conexión
@@ -132,7 +128,7 @@ fun ChatScreen(
             }
         }
 
-        // Input de mensaje
+        // Input de mensaje (diseño limpio, sin cajas marcadas)
         if (konektatuta) {
             Row(
                 modifier = Modifier
@@ -146,17 +142,23 @@ fun ChatScreen(
                     onValueChange = { mensajeActual = it },
                     modifier = Modifier
                         .weight(1f)
-                        .heightIn(min = 40.dp),
+                        .heightIn(min = 44.dp),
                     placeholder = { Text("Idatzi mezua...") },
-                    shape = RoundedCornerShape(8.dp),
-                    singleLine = false
+                    shape = RoundedCornerShape(20.dp),
+                    singleLine = false,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFF1976D2),
+                        unfocusedBorderColor = Color(0xFFB0BEC5),
+                        cursorColor = Color.Black
+                    )
                 )
 
-                Button(
+                IconButton(
                     onClick = {
                         if (mensajeActual.isNotBlank() && chatManager != null) {
                             scope.launch {
-                                val resultado = chatManager.bidaliMezua(mensajeActual)
+                                val testua = mensajeActual
+                                val resultado = chatManager.bidaliMezua(testua)
                                 if (!resultado) {
                                     Toast.makeText(
                                         context,
@@ -169,7 +171,7 @@ fun ChatScreen(
                                         ApiClient.apiService.gordeLog(
                                             LogRequest(
                                                 erabiltzailea = erabiltzaileId,
-                                                ekintza = "Txat mezua bidalia: ${mensajeActual.take(100)}"
+                                                ekintza = "Txat mezua bidalia: ${testua.take(100)}"
                                             )
                                         )
                                     } catch (_: Exception) {
@@ -179,11 +181,15 @@ fun ChatScreen(
                             }
                         }
                     },
-                    modifier = Modifier.size(40.dp),
-                    contentPadding = PaddingValues(0.dp),
-                    shape = RoundedCornerShape(8.dp)
+                    modifier = Modifier
+                        .size(44.dp)
+                        .background(Color(0xFF1976D2), shape = CircleShape)
                 ) {
-                    Text("→", fontSize = 20.sp)
+                    Icon(
+                        imageVector = Icons.Filled.Send,
+                        contentDescription = "Bidali",
+                        tint = Color.White
+                    )
                 }
             }
         }
@@ -206,13 +212,13 @@ private fun MensajeItem(mensaje: String, usuarioActual: String) {
     ) {
         Card(
             modifier = Modifier
-                .fillMaxWidth(0.8f)
-                .padding(horizontal = 8.dp),
-            shape = RoundedCornerShape(50),
+                .padding(horizontal = 8.dp)
+                .widthIn(min = 40.dp, max = 260.dp),
+            shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(
-                containerColor = if (esMio) Color(0xFF90CAF9) else Color(0xFFE3F2FD)
+                containerColor = if (esMio) Color(0xFF1976D2) else Color(0xFFE0E0E0)
             ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
                 Text(

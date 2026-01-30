@@ -3,11 +3,14 @@ package com.goierri.android
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Divider
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -31,52 +34,52 @@ fun Menua(
         Column(
             modifier = Modifier
                 .fillMaxHeight()
-                .width(250.dp)
-                .background(Color(0xFF1565C0))
+                .width(260.dp)
+                .background(Color(0xFF0F4C75))
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Button(
-                onClick = onEskaeraEginClick,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(60.dp)
-            ) {
-                Text("Eskaera Egin", fontSize = 18.sp)
-            }
-
+            // Cabecera del menú centrada
+            Text(
+                text = "MENUA",
+                color = Color.White,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Divider(color = Color(0x33FFFFFF))
             Spacer(modifier = Modifier.height(16.dp))
 
-            Button(
-                onClick = onEskaeraIkusiClick,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(60.dp)
-            ) {
-                Text("Eskaera Ikusi", fontSize = 18.sp)
-            }
+            MenuItem(
+                icon = "🧾",
+                label = "Eskaera egin",
+                onClick = onEskaeraEginClick
+            )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            Button(
-                onClick = onMahiakIkusiClick,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(60.dp)
-            ) {
-                Text("Mahiak Ikusi", fontSize = 18.sp)
-            }
+            MenuItem(
+                icon = "👀",
+                label = "Eskaera ikusi",
+                onClick = onEskaeraIkusiClick
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            MenuItem(
+                icon = "🪑",
+                label = "Mahiak ikusi",
+                onClick = onMahiakIkusiClick
+            )
 
             Spacer(modifier = Modifier.weight(1f))
 
-            Button(
+            MenuItem(
+                icon = "🚪",
+                label = "Saioa itxi",
                 onClick = onLogoutClick,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp)
-            ) {
-                Text("Saioa itxi", fontSize = 16.sp)
-            }
+                highlightColor = Color(0xFFE53935)
+            )
         }
 
         // Zona oscura a la derecha que sí cierra el menú al hacer clic
@@ -88,3 +91,31 @@ fun Menua(
         ) {}
     }
 }
+
+@Composable
+private fun MenuItem(
+    icon: String,
+    label: String,
+    onClick: () -> Unit,
+    highlightColor: Color = Color(0xFF1B6CA8)
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(52.dp)
+            .background(highlightColor.copy(alpha = 0.2f), shape = RoundedCornerShape(12.dp))
+            .clickable { onClick() }
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(text = icon, fontSize = 20.sp)
+        Spacer(modifier = Modifier.width(10.dp))
+        Text(
+            text = label,
+            color = Color.White,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Medium
+        )
+    }
+}
+

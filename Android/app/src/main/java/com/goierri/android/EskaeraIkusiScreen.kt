@@ -2,7 +2,6 @@ package com.goierri.android
 
 import android.util.Log
 import android.widget.Toast
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -17,8 +16,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
@@ -114,7 +113,12 @@ fun EskaeraIkusiScreen() {
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        Row(modifier = Modifier.fillMaxSize()) {
+        // Goiko zona: ezkerrean eskaera-editatutako lerroak, eskuinean botoiak
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+        ) {
             LazyColumn(
                 modifier = Modifier
                     .weight(0.5f)
@@ -330,6 +334,8 @@ private fun EskaeraEditatuScreen(
     var editatutako by remember { mutableStateOf<List<OrderItem>>(emptyList()) }
     var hautatutakoItem by remember { mutableStateOf<OrderItem?>(null) }
     var komensalak by remember { mutableStateOf(eskaera.komensalak) }
+    var komensalText by remember { mutableStateOf(eskaera.komensalak.toString()) }
+    var mahaiKapasitatea by remember { mutableStateOf<Int?>(null) }
 
     LaunchedEffect(Unit) {
         val grouped = produktuak.groupBy { it.produktuaId }.map { (id, items) ->
@@ -352,6 +358,14 @@ private fun EskaeraEditatuScreen(
             Log.e("EskaeraEditatu", "Kategoriak kargatzean errorea", e)
             Toast.makeText(context, "Ezin dira kategoriak kargatu", Toast.LENGTH_SHORT).show()
         }
+
+        try {
+            val resp = ApiClient.apiService.getMahaiKapasitatea(eskaera.mahaiaId)
+            mahaiKapasitatea = resp.datuak?.firstOrNull()
+        } catch (e: Exception) {
+            Log.e("EskaeraEditatu", "Mahai kapazitatea lortzean errorea", e)
+            mahaiKapasitatea = null
+        }
     }
 
     val guztira = remember(editatutako) {
@@ -366,18 +380,23 @@ private fun EskaeraEditatuScreen(
         Text("Mahaia: ${eskaera.mahaiaId} · Data: ${eskaera.data}")
         Text("Sukaldea: ${eskaera.sukaldeaEgoera}")
         Spacer(modifier = Modifier.height(6.dp))
+        val maxText = mahaiKapasitatea?.toString() ?: "-"
         OutlinedTextField(
-            value = komensalak.toString(),
+            value = komensalText,
             onValueChange = { value ->
-                komensalak = value.filter { it.isDigit() }.toIntOrNull() ?: 0
+                komensalText = value.filter { it.isDigit() }
             },
-            label = { Text("Komensalak") },
+            label = { Text("Komensalak (0 - $maxText)") },
             singleLine = true,
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(8.dp))
 
-        Row(modifier = Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+        ) {
             Column(
                 modifier = Modifier
                     .weight(0.7f)
@@ -408,90 +427,6 @@ private fun EskaeraEditatuScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
-
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(3),
-                    modifier = Modifier
-                        .height(300.dp)
-                        .fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    gridItems(katalogoProduktuak) { producto ->
-                        Card(
-                            modifier = Modifier
-                                .padding(4.dp)
-                                .fillMaxWidth()
-                                .clickable {
-                                    val existing = editatutako.firstOrNull { it.produktua.id == producto.id }
-                                    editatutako = if (existing == null) {
-                                        editatutako + OrderItem(producto, 1)
-                                    } else {
-                                        editatutako.map {
-                                            if (it.produktua.id == producto.id) it.copy(kantitatea = it.kantitatea + 1) else it
-                                        }
-                                    }
-                                    hautatutakoItem = null
-                                }
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(4.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Image(
-                                    painter = painterResource(id = R.drawable.ic_launcher_foreground),
-                                    contentDescription = producto.izena,
-                                    modifier = Modifier.size(40.dp)
-                                )
-                                Text(producto.izena, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                                Text(
-                                    "Stock: ${producto.stockAktuala ?: "-"}",
-                                    fontSize = 11.sp,
-                                    color = Color.DarkGray
-                                )
-                                Text("${String.format(Locale.getDefault(), "%.2f", producto.prezioa)} €", fontSize = 12.sp)
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(4),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(160.dp),
-                    userScrollEnabled = false,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    gridItems(kategoriak) { kategoria ->
-                        val seleccionada = kategoriaAktiboa?.id == kategoria.id
-                        Button(
-                            onClick = {
-                                kategoriaAktiboa = kategoria
-                                scope.launch {
-                                    try {
-                                        katalogoProduktuak = ApiClient.apiService.getProduktuakByKategoria(kategoria.id)
-                                    } catch (e: Exception) {
-                                        Log.e("EskaeraEditatu", "Produktuak kargatzean errorea", e)
-                                        Toast.makeText(context, "Ezin dira produktuak kargatu", Toast.LENGTH_SHORT).show()
-                                    }
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (seleccionada) Color(0xFF1565C0) else Color(0xFF90CAF9)
-                            ),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(60.dp)
-                        ) {
-                            Text(kategoria.izena, fontSize = 16.sp)
-                        }
-                    }
-                }
             }
 
             Column(
@@ -533,10 +468,21 @@ private fun EskaeraEditatuScreen(
 
                 Button(
                     onClick = {
+                        val value = komensalText.toIntOrNull() ?: 0
+                        if (value < 0) {
+                            Toast.makeText(context, "Komensalak zehaztu", Toast.LENGTH_SHORT).show()
+                            return@Button
+                        }
+                        val max = mahaiKapasitatea
+                        if (max != null && value > max) {
+                            Toast.makeText(context, "Gehienez $max pertsona", Toast.LENGTH_SHORT).show()
+                            return@Button
+                        }
+
                         scope.launch {
                             try {
                                 val payload = EskaeraEguneratuRequest(
-                                    komensalak = komensalak,
+                                    komensalak = value,
                                     produktuak = editatutako.map {
                                         EskaeraProduktuaEditatuRequest(
                                             produktuaId = it.produktua.id,
@@ -572,6 +518,115 @@ private fun EskaeraEditatuScreen(
                         .height(50.dp)
                 ) {
                     Text("Gorde aldaketak")
+                }
+            }
+        }
+
+        // Beheko zatia: produktuak eta kategoriak, pantaila osoaren zabaleran
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Produktuak editatzean: estilo bera erabiliko dugu TPV nagusian bezala
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(260.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            gridItems(katalogoProduktuak) { producto ->
+                Card(
+                    modifier = Modifier
+                        .padding(4.dp)
+                        .fillMaxWidth()
+                        .clickable {
+                            val existing = editatutako.firstOrNull { it.produktua.id == producto.id }
+                            editatutako = if (existing == null) {
+                                editatutako + OrderItem(producto, 1)
+                            } else {
+                                editatutako.map {
+                                    if (it.produktua.id == producto.id) it.copy(kantitatea = it.kantitatea + 1) else it
+                                }
+                            }
+                            hautatutakoItem = null
+                        }
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .padding(6.dp)
+                            .fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            producto.izena,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "${String.format(Locale.getDefault(), "%.2f", producto.prezioa)} €",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1976D2)
+                        )
+                        Text(
+                            "Stock: ${producto.stockAktuala ?: "-"}",
+                            fontSize = 11.sp,
+                            color = Color.DarkGray
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Kategoriak: estilo bera TPV nagusiko beheko bandarekin, pantaila osoan
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(4),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(160.dp),
+            userScrollEnabled = false,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            gridItems(kategoriak) { kategoria ->
+                val seleccionada = kategoriaAktiboa?.id == kategoria.id
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(70.dp)
+                        .clickable {
+                            kategoriaAktiboa = kategoria
+                            scope.launch {
+                                try {
+                                    katalogoProduktuak = ApiClient.apiService.getProduktuakByKategoria(kategoria.id)
+                                } catch (e: Exception) {
+                                    Log.e("EskaeraEditatu", "Produktuak kargatzean errorea", e)
+                                    Toast.makeText(context, "Ezin dira produktuak kargatu", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        },
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (seleccionada) Color(0xFF1565C0) else Color(0xFF90CAF9)
+                    ),
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            getKategoriaDisplayName(kategoria.izena),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 2,
+                            overflow = TextOverflow.Clip
+                        )
+                    }
                 }
             }
         }

@@ -10,6 +10,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import android.util.Log
 import retrofit2.HttpException
@@ -37,10 +38,21 @@ class MainActivity : ComponentActivity() {
                             erabiltzaileId = usuario!!.id,
                             erabiltzaileIzena = usuario!!.erabiltzailea,
                             onLogout = {
+                                // Primero actualizar el estado de UI para volver al login
+                                val manager = chatManager
+                                chatManager = null
                                 usuario = null
                                 loggedIn = false
-                                chatManager?.deskonektatu()
-                                chatManager = null
+
+                                // Cerrar el chat en segundo plano para evitar bloqueos
+                                if (manager != null) {
+                                    lifecycleScope.launch(Dispatchers.IO) {
+                                        try {
+                                            manager.deskonektatu()
+                                        } catch (_: Exception) {
+                                        }
+                                    }
+                                }
                             },
                             activity = this@MainActivity,
                             tieneChatAcceso = usuario!!.txat,
